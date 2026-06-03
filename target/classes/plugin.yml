@@ -1,0 +1,22 @@
+name: sundownAnnouncementManager
+version: '1.0-SNAPSHOT'
+prefix: Announcement Manager
+
+main: org.chonkleblorp.sundownAnnouncementManager.SundownAnnouncementManager
+description: A plugin for managing announcements on Sundown SMP
+author: chonkleblorp (Dominic Gena)
+website: https://sundown.social/
+
+permissions:
+  op.node:
+    description: "Can send announcements"
+    default: op
+
+  default.node:
+    description: "The player; receives announcements sent by the op(s)"
+    default: true
+
+default-permission: not op
+
+api-version: '26.1.2'
+load: POSTWORLD
