@@ -17,31 +17,65 @@ import java.util.Map;
 
 public class AnnouncementCommand {
     public static LiteralArgumentBuilder<CommandSourceStack> create() {
-        Map<String, Command<CommandSourceStack>> commandLogics = new HashMap<>();
-        commandLogics.put("read", AnnouncementCommand::runReadLogic);// associate the command string with the correct method
+        // Map's value type holds the fully built subcommand node
+        Map<String, LiteralArgumentBuilder<CommandSourceStack>> subCommands = new HashMap<>();
 
-        return buildCommand("announcement", commandLogics);
+        // 1. The Base-Player Command (No permissions required)
+        subCommands.put("read", Commands.literal("read")
+                .executes(AnnouncementCommand::runReadLogic));
+
+        // 2. The Operator Command (Requires the op.node permission)
+        subCommands.put("broadcast", Commands.literal("broadcast")
+                .requires(source -> source.getSender().hasPermission("op.node"))
+                .executes(AnnouncementCommand::runBroadcastLogic));
+
+        return buildCommand("announcement", subCommands);
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildCommand(String name, Map<String, Command<CommandSourceStack>> children) {
+    private static LiteralArgumentBuilder<CommandSourceStack> buildCommand(String name, Map<String, LiteralArgumentBuilder<CommandSourceStack>> children) {
         LiteralArgumentBuilder<CommandSourceStack> command = Commands.literal(name);
-        for (Map.Entry<String, Command<CommandSourceStack>> child : children.entrySet()) {
-            command.then(Commands.literal(child.getKey())
-                    .executes(child.getValue())
-            );
+        // attach each subcommand to its parent
+        for (LiteralArgumentBuilder<CommandSourceStack> child : children.values()) {
+            command.then(child);
         }
+
         return command;
     }
 
     private static int runReadLogic(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         Entity executor = ctx.getSource().getExecutor();
+        if (!(executor instanceof Player player)) {
+            sender.sendPlainMessage("This command can only be executed by players!");
+            return Command.SINGLE_SUCCESS;
+        }
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HARP, SoundCategory.MASTER, 1.0f, 1.0f);
+
+        if (sender == executor) {
+            player.sendPlainMessage("Successfully played harp sound!");
+            return Command.SINGLE_SUCCESS;
+        }
+
+        sender.sendRichMessage("Successfully played sound for <playername>.", Placeholder.component("playername", player.name()));
+        player.sendPlainMessage("Successfully played sound!");
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int runBroadcastLogic(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Entity executor = ctx.getSource().getExecutor();
+
+        if (!sender.hasPermission("op.node")) {
+            sender.sendRichMessage("<red>You do not have permission to broadcast announcements.");
+            return Command.SINGLE_SUCCESS; // Exit the method immediately
+        }
 
         if (!(executor instanceof Player player)) {
             sender.sendPlainMessage("This command can only be executed by players!");
             return Command.SINGLE_SUCCESS;
         }
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HARP, SoundCategory.MASTER, 1.0f, 1.0f);
+        sender.sendPlainMessage("Hello from broadcast!");
 
         if (sender == executor) {
             player.sendPlainMessage("Successfully played harp sound!");

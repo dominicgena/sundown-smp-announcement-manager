@@ -7,6 +7,9 @@ description: A plugin for managing announcements on Sundown SMP
 author: chonkleblorp (Dominic Gena)
 website: https://sundown.social/
 
+api-version: '26.1.2'
+load: POSTWORLD
+
 permissions:
   op.node:
     description: "Can send announcements"
@@ -15,8 +18,3 @@ permissions:
   default.node:
     description: "The player; receives announcements sent by the op(s)"
     default: true
-
-default-permission: not op
-
-api-version: '26.1.2'
-load: POSTWORLD
