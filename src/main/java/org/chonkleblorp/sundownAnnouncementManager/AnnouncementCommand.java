@@ -29,6 +29,25 @@ public class AnnouncementCommand {
                 .requires(source -> source.getSender().hasPermission("op.node"))
                 .executes(AnnouncementCommand::runBroadcastLogic));
 
+        // 3. The Custom Argument Command
+        // First we create the literal word "player"
+        LiteralArgumentBuilder<CommandSourceStack> playerSubCommand = Commands.literal("player")
+                // Then we attach the custom argument to it
+                .then(Commands.argument("target", new OppedPlayerArgument())
+                        .executes(ctx -> {
+                            // "target" must match the name you gave in Commands.argument()
+                            final Player targetPlayer = ctx.getArgument("target", Player.class);
+
+                            ctx.getSource().getSender().sendRichMessage("Player <player> is an operator!",
+                                    Placeholder.component("player", targetPlayer.displayName())
+                            );
+                            return Command.SINGLE_SUCCESS;
+                        })
+                );
+
+        // Now we can safely put the literal builder into the map
+        subCommands.put("player", playerSubCommand);
+
         return buildCommand("announcement", subCommands);
     }
 
