@@ -1,108 +1,83 @@
 package org.chonkleblorp.sundownAnnouncementManager;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class AnnouncementCommand {
-    public static LiteralArgumentBuilder<CommandSourceStack> create() {
-        // Map's value type holds the fully built subcommand node
+    private final AnnouncementConfigManager manager = AnnouncementConfigManager.getInstance();
+
+    public LiteralArgumentBuilder<CommandSourceStack> create() {
         Map<String, LiteralArgumentBuilder<CommandSourceStack>> subCommands = new HashMap<>();
 
-        // 1. The Base-Player Command (No permissions required)
+        // base players and operators
         subCommands.put("read", Commands.literal("read")
-                .executes(AnnouncementCommand::runReadLogic));
+                .requires(source -> source.getExecutor() instanceof Player)
+                .executes(this::runReadLogic)
+        );
 
-        // 2. The Operator Command (Requires the op.node permission)
+        // only operator
         subCommands.put("broadcast", Commands.literal("broadcast")
                 .requires(source -> source.getSender().hasPermission("op.node"))
-                .executes(AnnouncementCommand::runBroadcastLogic));
-
-        // 3. The Custom Argument Command
-        // First we create the literal word "player"
-        LiteralArgumentBuilder<CommandSourceStack> playerSubCommand = Commands.literal("player")
-                // Then we attach the custom argument to it
-                .then(Commands.argument("target", new OppedPlayerArgument())
-                        .executes(ctx -> {
-                            // "target" must match the name you gave in Commands.argument()
-                            final Player targetPlayer = ctx.getArgument("target", Player.class);
-
-                            ctx.getSource().getSender().sendRichMessage("Player <player> is an operator!",
-                                    Placeholder.component("player", targetPlayer.displayName())
-                            );
-                            return Command.SINGLE_SUCCESS;
-                        })
-                );
-
-        // Now we can safely put the literal builder into the map
-        subCommands.put("player", playerSubCommand);
+                .then(
+                        Commands.argument("message", StringArgumentType.greedyString())
+                                .executes(this::runBroadcastLogic)
+                )
+        );
 
         return buildCommand("announcement", subCommands);
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildCommand(String name, Map<String, LiteralArgumentBuilder<CommandSourceStack>> children) {
+    private LiteralArgumentBuilder<CommandSourceStack> buildCommand(String name, Map<String, LiteralArgumentBuilder<CommandSourceStack>> children) {
         LiteralArgumentBuilder<CommandSourceStack> command = Commands.literal(name);
-        // attach each subcommand to its parent
         for (LiteralArgumentBuilder<CommandSourceStack> child : children.values()) {
             command.then(child);
         }
-
         return command;
     }
 
-    private static int runReadLogic(CommandContext<CommandSourceStack> ctx) {
+    private int runReadLogic(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
-        Entity executor = ctx.getSource().getExecutor();
-        if (!(executor instanceof Player player)) {
-            sender.sendPlainMessage("This command can only be executed by players!");
-            return Command.SINGLE_SUCCESS;
-        }
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HARP, SoundCategory.MASTER, 1.0f, 1.0f);
-
-        if (sender == executor) {
-            player.sendPlainMessage("Successfully played harp sound!");
+        if (!(ctx.getSource().getExecutor() instanceof Player player)) {
+            sender.sendPlainMessage("You must be an in-game player to read the announcement.");
             return Command.SINGLE_SUCCESS;
         }
 
-        sender.sendRichMessage("Successfully played sound for <playername>.", Placeholder.component("playername", player.name()));
-        player.sendPlainMessage("Successfully played sound!");
+        String savedMessage = manager.getMessage();
+
+        // prevent errors if the config hasn't been set yet
+        if (savedMessage == null || savedMessage.isEmpty() || savedMessage.equals("null")) {
+            player.sendRichMessage("<red>There is currently no announcement to read.</red>");
+            return Command.SINGLE_SUCCESS;
+        }
+
+        // create the announcement object using the saved message and open the book
+        Announcement announcement = new Announcement(savedMessage);
+        player.openBook(announcement.getBook());
+
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int runBroadcastLogic(CommandContext<CommandSourceStack> ctx) {
+    private int runBroadcastLogic(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
-        Entity executor = ctx.getSource().getExecutor();
+        String message = StringArgumentType.getString(ctx, "message");
 
-        if (!sender.hasPermission("op.node")) {
-            sender.sendRichMessage("<red>You do not have permission to broadcast announcements.");
-            return Command.SINGLE_SUCCESS; // Exit the method immediately
+        // save the message to the config
+        manager.setMessage(message);
+
+        if (sender instanceof Player) {
+            sender.sendRichMessage("<green>Announcement updated successfully!</green>");
+        } else {
+            System.out.println("Announcement updated successfully!");
         }
-
-        if (!(executor instanceof Player player)) {
-            sender.sendPlainMessage("This command can only be executed by players!");
-            return Command.SINGLE_SUCCESS;
-        }
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HARP, SoundCategory.MASTER, 1.0f, 1.0f);
-        sender.sendPlainMessage("Hello from broadcast!");
-
-        if (sender == executor) {
-            player.sendPlainMessage("Successfully played harp sound!");
-            return Command.SINGLE_SUCCESS;
-        }
-
-        sender.sendRichMessage("Successfully played sound for <playername>.", Placeholder.component("playername", player.name()));
-        player.sendPlainMessage("Successfully played sound!");
         return Command.SINGLE_SUCCESS;
     }
 }

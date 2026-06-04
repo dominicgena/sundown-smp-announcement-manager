@@ -20,12 +20,13 @@ public final class SundownAnnouncementManager extends JavaPlugin {
 
         final int version = Integer.parseInt(versions[1]);
         // 1. Access the Lifecycle Manager
-        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+        AnnouncementConfigManager.getInstance().load();
+        AnnouncementCommand command = new AnnouncementCommand();
 
-            // 2. Register the command from the AnnouncementCommand class
+        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             event.registrar().register(
-                    AnnouncementCommand.create().build(), // Call .build() to convert the Builder to a Node
-                    "Manage sundown announcements"        // Provide a description for the command
+                    command.create().build(),
+                    "Manage sundown announcements"
             );
 
         });
